@@ -20,6 +20,7 @@ public sealed record SupplierListItem(
     string ContactName,
     string Phone,
     string Email,
+    decimal AvailableBudget,
     bool IsActive,
     IReadOnlyList<CategoryRef> Categories);
 
@@ -30,6 +31,7 @@ public sealed record SupplierDetail(
     string ContactName,
     string Phone,
     string Email,
+    decimal AvailableBudget,
     bool IsActive,
     DateTime CreatedAt,
     DateTime? UpdatedAt,
@@ -43,7 +45,7 @@ public sealed class SupplierUpsertRequest
     public string Name { get; init; } = string.Empty;
 
     [Required(ErrorMessage = "El NIT es obligatorio.")]
-    [RegularExpression(@"^[\d.\s]{6,15}(-\d)?$", ErrorMessage = "Escribe un NIT válido, por ejemplo 900.123.456-7.")]
+    [RegularExpression(@"^[\d.\s]{9,14}(-\d)?$", ErrorMessage = "Escribe un NIT válido de 9 o 10 dígitos, por ejemplo 900.123.456-7.")]
     public string TaxId { get; init; } = string.Empty;
 
     [Required(ErrorMessage = "La persona de contacto es obligatoria.")]
@@ -58,6 +60,10 @@ public sealed class SupplierUpsertRequest
     [EmailAddress(ErrorMessage = "Escribe un correo válido, por ejemplo ventas@empresa.com.")]
     [StringLength(120)]
     public string Email { get; init; } = string.Empty;
+
+    /// <summary>Presupuesto disponible para aprobar órdenes de compra.</summary>
+    [Range(0, 100_000_000_000, ErrorMessage = "El presupuesto no puede ser negativo.")]
+    public decimal AvailableBudget { get; init; }
 
     [MinLength(1, ErrorMessage = "Marca al menos una categoría de lo que nos vende.")]
     public List<int> CategoryIds { get; init; } = [];

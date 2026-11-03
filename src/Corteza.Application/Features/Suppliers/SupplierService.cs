@@ -37,7 +37,7 @@ public sealed class SupplierService(IAppDbContext db)
             .OrderBy(s => s.Name)
             .Skip(q.Skip).Take(q.PageSize)
             .Select(s => new SupplierListItem(
-                s.Id, s.Name, s.TaxId, s.ContactName, s.Phone, s.Email, s.IsActive,
+                s.Id, s.Name, s.TaxId, s.ContactName, s.Phone, s.Email, s.AvailableBudget, s.IsActive,
                 s.CategoryLinks
                     .OrderBy(l => l.SupplyCategory.Name)
                     .Select(l => new CategoryRef(l.SupplyCategoryId, l.SupplyCategory.Name))
@@ -52,7 +52,7 @@ public sealed class SupplierService(IAppDbContext db)
         return await db.Suppliers.AsNoTracking()
             .Where(s => s.Id == id)
             .Select(s => new SupplierDetail(
-                s.Id, s.Name, s.TaxId, s.ContactName, s.Phone, s.Email, s.IsActive, s.CreatedAt, s.UpdatedAt,
+                s.Id, s.Name, s.TaxId, s.ContactName, s.Phone, s.Email, s.AvailableBudget, s.IsActive, s.CreatedAt, s.UpdatedAt,
                 s.CategoryLinks
                     .OrderBy(l => l.SupplyCategory.Name)
                     .Select(l => new CategoryRef(l.SupplyCategoryId, l.SupplyCategory.Name))
@@ -68,8 +68,9 @@ public sealed class SupplierService(IAppDbContext db)
         await EnsureUniqueTaxIdAsync(taxId, excludeId: null, ct);
         var categoryIds = await ValidateCategoriesAsync(request.CategoryIds, ct);
 
-        var supplier = new Supplier { TaxId = taxId };
-        Apply(supplier, request);
+        var supplier = Supplier.Create(
+            Normalize.Text(request.Name), taxId, Normalize.Text(request.ContactName),
+            Normalize.Phone(request.Phone), Normalize.Email(request.Email)!, request.AvailableBudget);
         foreach (var categoryId in categoryIds)
             supplier.CategoryLinks.Add(new SupplierSupplyCategory { SupplyCategoryId = categoryId });
 
@@ -89,8 +90,9 @@ public sealed class SupplierService(IAppDbContext db)
         await EnsureUniqueTaxIdAsync(taxId, excludeId: id, ct);
         var categoryIds = await ValidateCategoriesAsync(request.CategoryIds, ct);
 
-        supplier.TaxId = taxId;
-        Apply(supplier, request);
+        supplier.UpdateDetails(
+            Normalize.Text(request.Name), taxId, Normalize.Text(request.ContactName),
+            Normalize.Phone(request.Phone), Normalize.Email(request.Email)!, request.AvailableBudget);
         supplier.UpdatedAt = DateTime.UtcNow;
 
         // Sincroniza las categorías: quita las desmarcadas y agrega las nuevas.
@@ -116,10 +118,8 @@ public sealed class SupplierService(IAppDbContext db)
         var hasActiveOrders = await db.PurchaseOrders
             .AnyAsync(o => o.SupplierId == id
                 && (o.Status == PurchaseOrderStatus.Requested || o.Status == PurchaseOrderStatus.Confirmed), ct);
-        if (hasActiveOrders)
-            throw new BusinessRuleException("No se puede desactivar: el proveedor tiene órdenes activas.");
 
-        supplier.IsActive = false;
+        supplier.Deactivate(hasActiveOrders); // la regla vive en el dominio
         supplier.UpdatedAt = DateTime.UtcNow;
         await db.SaveChangesAsync(ct);
     }
@@ -130,7 +130,7 @@ public sealed class SupplierService(IAppDbContext db)
             ?? throw NotFoundException.For("el proveedor", id);
         if (supplier.IsActive) return;
 
-        supplier.IsActive = true;
+        supplier.Activate();
         supplier.UpdatedAt = DateTime.UtcNow;
         await db.SaveChangesAsync(ct);
     }
@@ -150,11 +150,4 @@ public sealed class SupplierService(IAppDbContext db)
         return ids;
     }
 
-    private static void Apply(Supplier supplier, SupplierUpsertRequest request)
-    {
-        supplier.Name = Normalize.Text(request.Name);
-        supplier.ContactName = Normalize.Text(request.ContactName);
-        supplier.Phone = Normalize.Phone(request.Phone);
-        supplier.Email = Normalize.Email(request.Email)!;
-    }
 }

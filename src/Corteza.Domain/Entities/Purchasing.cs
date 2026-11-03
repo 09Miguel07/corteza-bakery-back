@@ -2,31 +2,6 @@ using Corteza.Domain.Enums;
 
 namespace Corteza.Domain.Entities;
 
-public class Supplier
-{
-    public int Id { get; set; }
-    public string Name { get; set; } = null!;
-    public string TaxId { get; set; } = null!; // NIT
-    public string ContactName { get; set; } = null!;
-    public string Phone { get; set; } = null!;
-    public string Email { get; set; } = null!;
-    public bool IsActive { get; set; } = true;
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-    public DateTime? UpdatedAt { get; set; }
-
-    public ICollection<SupplierSupplyCategory> CategoryLinks { get; set; } = [];
-    public ICollection<PurchaseOrder> PurchaseOrders { get; set; } = [];
-}
-
-/// <summary>Qué categorías de insumo vende cada proveedor ("¿Qué nos vende?", pantalla 04.2).</summary>
-public class SupplierSupplyCategory
-{
-    public int SupplierId { get; set; }
-    public Supplier Supplier { get; set; } = null!;
-    public int SupplyCategoryId { get; set; }
-    public SupplyCategory SupplyCategory { get; set; } = null!;
-}
-
 public class PurchaseOrder
 {
     public int Id { get; set; }

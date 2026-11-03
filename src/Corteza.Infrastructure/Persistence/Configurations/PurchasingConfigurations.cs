@@ -14,6 +14,8 @@ internal sealed class SupplierConfiguration : IEntityTypeConfiguration<Supplier>
         b.Property(s => s.ContactName).HasMaxLength(80);
         b.Property(s => s.Phone).HasMaxLength(20);
         b.Property(s => s.Email).HasMaxLength(120);
+        b.Property(s => s.RowVersion).IsRowVersion();
+        b.ToTable(t => t.HasCheckConstraint("CK_Suppliers_AvailableBudget", "[AvailableBudget] >= 0"));
         b.HasIndex(s => s.TaxId).IsUnique();
         b.HasIndex(s => s.Name);
     }

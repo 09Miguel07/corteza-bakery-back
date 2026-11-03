@@ -96,7 +96,8 @@ public sealed class DbInitializer(
 
         Supplier NewSupplier(string name, string taxId, string contact, string phone, string email, bool active, params string[] cats)
         {
-            var supplier = new Supplier { Name = name, TaxId = taxId, ContactName = contact, Phone = phone, Email = email, IsActive = active };
+            var supplier = Supplier.Create(name, taxId, contact, phone, email, availableBudget: 20_000_000);
+            if (!active) supplier.Deactivate(hasActiveOrders: false);
             foreach (var c in cats) supplier.CategoryLinks.Add(new SupplierSupplyCategory { SupplyCategory = categories[c] });
             return supplier;
         }
