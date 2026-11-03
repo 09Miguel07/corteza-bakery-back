@@ -33,6 +33,9 @@ public interface IAppDbContext
     DbSet<PurchaseOrder> PurchaseOrders { get; }
     DbSet<PurchaseInvoice> PurchaseInvoices { get; }
 
+    DbSet<RequestForQuotation> RequestsForQuotation { get; }
+    DbSet<Quotation> Quotations { get; }
+
     DatabaseFacade Database { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);

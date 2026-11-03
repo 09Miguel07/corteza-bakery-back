@@ -4,6 +4,8 @@ using Corteza.Application.Features.Customers;
 using Corteza.Application.Features.Dashboard;
 using Corteza.Application.Features.Employees;
 using Corteza.Application.Features.Inventory;
+using Corteza.Application.Features.Purchasing;
+using Corteza.Application.Features.Quotations;
 using Corteza.Application.Features.Suppliers;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -23,6 +25,8 @@ public static class DependencyInjection
         services.AddScoped<EmployeeService>();
         services.AddScoped<ProductService>();
         services.AddScoped<DashboardService>();
+        services.AddScoped<PurchaseOrderService>();
+        services.AddScoped<QuotationService>();
         return services;
     }
 }

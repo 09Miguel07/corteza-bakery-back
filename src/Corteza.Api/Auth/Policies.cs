@@ -30,7 +30,7 @@ public static class Policies
             // Inventario y Compras eligen proveedores en sus formularios.
             .AddPolicy(SuppliersRead, p => p.RequireRole(RoleCodes.Suppliers, RoleCodes.Purchases, RoleCodes.Inventory, RoleCodes.Admin))
             .AddPolicy(SuppliersWrite, p => p.RequireRole(RoleCodes.Suppliers, RoleCodes.Admin))
-            .AddPolicy(Purchases, p => p.RequireRole(RoleCodes.Purchases, RoleCodes.Admin))
+            .AddPolicy(Purchases, p => p.RequireRole(RoleCodes.Purchases, RoleCodes.Admin)) // el jefe de compras aprueba
             .AddPolicy(Hr, p => p.RequireRole(RoleCodes.Hr, RoleCodes.Admin))
             .AddPolicy(Admin, p => p.RequireRole(RoleCodes.Admin));
         return services;

@@ -29,9 +29,13 @@ public sealed class CortezaDbContext(DbContextOptions<CortezaDbContext> options)
     public DbSet<PurchaseOrder> PurchaseOrders => Set<PurchaseOrder>();
     public DbSet<PurchaseInvoice> PurchaseInvoices => Set<PurchaseInvoice>();
 
+    public DbSet<RequestForQuotation> RequestsForQuotation => Set<RequestForQuotation>();
+    public DbSet<Quotation> Quotations => Set<Quotation>();
+
     /// <summary>Hijos que sí se borran en cascada con su padre (líneas de documentos y tablas puente).</summary>
     private static readonly HashSet<Type> CascadeChildren =
-        [typeof(OrderItem), typeof(PurchaseOrderItem), typeof(PayslipLine), typeof(SupplierSupplyCategory)];
+        [typeof(OrderItem), typeof(PurchaseOrderItem), typeof(PayslipLine), typeof(SupplierSupplyCategory),
+         typeof(RequestForQuotationItem), typeof(QuotationItem)];
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
