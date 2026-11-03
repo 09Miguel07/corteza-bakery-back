@@ -35,3 +35,7 @@ public enum StockStatus { Ok, Low, Out }
 public enum PurchaseOrderStatus { Draft, Requested, Confirmed, Received, Cancelled }
 
 public enum PurchaseInvoiceStatus { Pending, Paid }
+
+public enum RfqStatus { Open, Closed, Cancelled }
+
+public enum QuotationStatus { Received, Selected, Rejected }

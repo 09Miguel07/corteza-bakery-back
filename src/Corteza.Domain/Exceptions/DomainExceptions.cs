@@ -38,3 +38,10 @@ public sealed class InsufficientStockException(decimal available, decimal reques
     public decimal Available { get; } = available;
     public decimal Requested { get; } = requested;
 }
+
+public sealed class InvalidRequestForQuotationException(string message) : DomainException(message);
+
+public sealed class QuotationNotAllowedException(string message) : DomainException(message);
+
+public sealed class DuplicateQuotationException(string supplierName)
+    : DomainException($"El proveedor {supplierName} ya registró una cotización para esta solicitud.");
