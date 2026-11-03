@@ -6,6 +6,7 @@
     <Project Path="src/Corteza.Infrastructure/Corteza.Infrastructure.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/Corteza.Application.Tests/Corteza.Application.Tests.csproj" />
     <Project Path="tests/Corteza.Domain.Tests/Corteza.Domain.Tests.csproj" />
   </Folder>
 </Solution>
