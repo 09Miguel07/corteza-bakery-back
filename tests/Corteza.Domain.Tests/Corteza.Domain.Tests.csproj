@@ -2,6 +2,13 @@
   <PropertyGroup>
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
+    <!-- Puerta de calidad: dotnet test falla si la cobertura de líneas del módulo del taller baja de 80 %. -->
+    <CollectCoverage>true</CollectCoverage>
+    <CoverletOutputFormat>cobertura</CoverletOutputFormat>
+    <CoverletOutput>$(MSBuildThisFileDirectory)TestResults/</CoverletOutput>
+    <Threshold>80</Threshold>
+    <ThresholdType>line</ThresholdType>
+    <Include>[Corteza.Domain]Corteza.Domain.Entities.Supplier,[Corteza.Domain]Corteza.Domain.Entities.Supply,[Corteza.Domain]Corteza.Domain.Entities.RequestForQuotation*,[Corteza.Domain]Corteza.Domain.Entities.Quotation*,[Corteza.Domain]Corteza.Domain.Entities.PurchaseOrder*</Include>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.*" />
@@ -10,7 +17,6 @@
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
-    <!-- Cobertura con umbral: dotnet test /p:CollectCoverage=true /p:Threshold=80 -->
     <PackageReference Include="coverlet.msbuild" Version="6.*">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>

@@ -21,6 +21,8 @@ CREATE SEQUENCE dbo.OrderCodeSeq     AS int START WITH 1;
 CREATE SEQUENCE dbo.SalesInvoiceSeq  AS int START WITH 1;
 CREATE SEQUENCE dbo.PurchaseOrderSeq AS int START WITH 1000;
 CREATE SEQUENCE dbo.PayslipCodeSeq   AS int START WITH 1;
+CREATE SEQUENCE dbo.SupplyCodeSeq    AS int START WITH 1;
+CREATE SEQUENCE dbo.RequestForQuotationSeq AS int START WITH 1;
 
 /* ========== SEGURIDAD ========== */
 CREATE TABLE Roles (
@@ -209,7 +211,10 @@ CREATE TABLE Suppliers (
   ContactName  nvarchar(80)  NOT NULL,
   Phone        nvarchar(20)  NOT NULL,
   Email        nvarchar(120) NOT NULL,
+  AvailableBudget decimal(14,2) NOT NULL DEFAULT 0
+                  CONSTRAINT CK_Suppliers_AvailableBudget CHECK (AvailableBudget >= 0), -- se descuenta al aprobar una OC
   IsActive     bit NOT NULL DEFAULT 1,
+  RowVersion   rowversion NOT NULL,                                         -- concurrencia optimista (409)
   CreatedAt    datetime2(3) NOT NULL,
   UpdatedAt    datetime2(3) NULL
 );
@@ -223,6 +228,8 @@ CREATE TABLE SupplierSupplyCategories (
 /* ========== INVENTARIOS ========== */
 CREATE TABLE Supplies (
   Id              int IDENTITY PRIMARY KEY,
+  Code            nvarchar(12) NOT NULL CONSTRAINT UX_Supplies_Code UNIQUE
+                  DEFAULT CONCAT('INS-', FORMAT(NEXT VALUE FOR dbo.SupplyCodeSeq, '000')),
   Name            nvarchar(100) NOT NULL CONSTRAINT UX_Supplies_Name UNIQUE,
   CategoryId      int NOT NULL REFERENCES SupplyCategories(Id),
   PurchaseUnit    nvarchar(60) NOT NULL,                    -- "Bulto de 50 kg"
@@ -232,29 +239,75 @@ CREATE TABLE Supplies (
   MinStock        decimal(12,2) NOT NULL CONSTRAINT CK_Supplies_MinStock CHECK (MinStock >= 0),
   MainSupplierId  int NULL REFERENCES Suppliers(Id),
   IsActive        bit NOT NULL DEFAULT 1,
+  RowVersion      rowversion NOT NULL,                      -- dos retiros simultáneos no dejan stock negativo
   CreatedAt       datetime2(3) NOT NULL,
   UpdatedAt       datetime2(3) NULL
   -- "Por acabarse": CurrentStock < MinStock. "Agotado": CurrentStock = 0. No se guardan.
 );
 
 /* ========== COMPRAS ========== */
-CREATE TABLE PurchaseOrders (
-  Id                  int IDENTITY PRIMARY KEY,
-  Code                nvarchar(12) NOT NULL CONSTRAINT UX_PurchaseOrders_Code UNIQUE
-                      DEFAULT CONCAT('OC-', FORMAT(NEXT VALUE FOR dbo.PurchaseOrderSeq, '0000')),
-  SupplierId          int NOT NULL REFERENCES Suppliers(Id),
-  Status              nvarchar(20) NOT NULL CONSTRAINT CK_PurchaseOrders_Status
-                      CHECK (Status IN ('Draft','Requested','Confirmed','Received','Cancelled')),
-  ExpectedDeliveryAt  datetime2(3) NOT NULL,
-  Total               decimal(14,2) NOT NULL,
-  Notes               nvarchar(200) NULL,
-  CancelReason        nvarchar(200) NULL,
-  CreatedByUserId     int NOT NULL REFERENCES Users(Id),
-  RequestedAt         datetime2(3) NOT NULL,
-  ConfirmedAt         datetime2(3) NULL,
-  ReceivedAt          datetime2(3) NULL,
-  CancelledAt         datetime2(3) NULL
+CREATE TABLE RequestsForQuotation (                         -- solicitud de cotización SC-001
+  Id                int IDENTITY PRIMARY KEY,
+  Code              nvarchar(12) NOT NULL CONSTRAINT UX_RequestsForQuotation_Code UNIQUE
+                    DEFAULT CONCAT('SC-', FORMAT(NEXT VALUE FOR dbo.RequestForQuotationSeq, '000')),
+  Description       nvarchar(200) NULL,
+  Status            nvarchar(20) NOT NULL CONSTRAINT CK_RequestsForQuotation_Status
+                    CHECK (Status IN ('Open','Closed','Cancelled')),
+  ResponseDeadline  date NOT NULL,
+  CreatedByUserId   int NOT NULL REFERENCES Users(Id),
+  CreatedAt         datetime2(3) NOT NULL,
+  ClosedAt          datetime2(3) NULL
 );
+
+CREATE TABLE RequestForQuotationItems (
+  Id                     int IDENTITY PRIMARY KEY,
+  RequestForQuotationId  int NOT NULL REFERENCES RequestsForQuotation(Id) ON DELETE CASCADE,
+  SupplyId               int NOT NULL REFERENCES Supplies(Id),
+  Quantity               decimal(12,2) NOT NULL CONSTRAINT CK_RequestForQuotationItems_Quantity CHECK (Quantity > 0),
+  CONSTRAINT UX_RequestForQuotationItems UNIQUE (RequestForQuotationId, SupplyId)
+);
+
+CREATE TABLE Quotations (                                   -- respuesta de un proveedor a una SC
+  Id                     int IDENTITY PRIMARY KEY,
+  RequestForQuotationId  int NOT NULL REFERENCES RequestsForQuotation(Id),
+  SupplierId             int NOT NULL REFERENCES Suppliers(Id),
+  Status                 nvarchar(20) NOT NULL CONSTRAINT CK_Quotations_Status
+                         CHECK (Status IN ('Received','Selected','Rejected')),
+  DeliveryDays           int NOT NULL CONSTRAINT CK_Quotations_DeliveryDays CHECK (DeliveryDays >= 0),
+  Total                  decimal(14,2) NOT NULL CONSTRAINT CK_Quotations_Total CHECK (Total > 0),
+  Notes                  nvarchar(200) NULL,
+  ReceivedAt             datetime2(3) NOT NULL,
+  CONSTRAINT UX_Quotations_Rfq_Supplier UNIQUE (RequestForQuotationId, SupplierId)  -- una cotización por proveedor
+);
+
+CREATE TABLE QuotationItems (
+  Id           int IDENTITY PRIMARY KEY,
+  QuotationId  int NOT NULL REFERENCES Quotations(Id) ON DELETE CASCADE,
+  SupplyId     int NOT NULL REFERENCES Supplies(Id),
+  Quantity     decimal(12,2) NOT NULL,
+  UnitPrice    decimal(14,2) NOT NULL CONSTRAINT CK_QuotationItems_UnitPrice CHECK (UnitPrice > 0)
+);
+
+CREATE TABLE PurchaseOrders (
+  Id                    int IDENTITY PRIMARY KEY,
+  Code                  nvarchar(12) NOT NULL CONSTRAINT UX_PurchaseOrders_Code UNIQUE
+                        DEFAULT CONCAT('OC-', FORMAT(NEXT VALUE FOR dbo.PurchaseOrderSeq, '0000')),
+  SupplierId            int NOT NULL REFERENCES Suppliers(Id),
+  Status                nvarchar(20) NOT NULL CONSTRAINT CK_PurchaseOrders_Status
+                        CHECK (Status IN ('Pending','Approved','Received','Cancelled')),
+  ExpectedDeliveryDate  date NOT NULL,
+  Total                 decimal(14,2) NOT NULL,
+  Notes                 nvarchar(200) NULL,
+  QuotationId           int NULL REFERENCES Quotations(Id),   -- índice único filtrado: una OC por cotización
+  CreatedByUserId       int NOT NULL REFERENCES Users(Id),
+  RequestedAt           datetime2(3) NOT NULL,
+  ApprovedByUserId      int NULL REFERENCES Users(Id),
+  ApprovedAt            datetime2(3) NULL,
+  CancelReason          nvarchar(200) NULL,
+  CancelledAt           datetime2(3) NULL,
+  ReceivedAt            datetime2(3) NULL
+);
+CREATE UNIQUE INDEX UX_PurchaseOrders_QuotationId ON PurchaseOrders(QuotationId) WHERE QuotationId IS NOT NULL;
 CREATE INDEX IX_PurchaseOrders_Supplier_Status ON PurchaseOrders(SupplierId, Status);
 
 CREATE TABLE PurchaseOrderItems (
