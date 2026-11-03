@@ -4,9 +4,6 @@ using Corteza.Domain.Enums;
 
 namespace Corteza.Application.Features.Inventory;
 
-/// <summary>Estado de existencias que muestra la lista de insumos (pantalla 03.1).</summary>
-public enum StockStatus { Ok, Low, Out }
-
 public sealed class SupplyQuery : PageQuery
 {
     public string? Search { get; init; }
@@ -17,6 +14,7 @@ public sealed class SupplyQuery : PageQuery
 
 public sealed record SupplyListItem(
     int Id,
+    string Code,
     string Name,
     int CategoryId,
     string CategoryName,

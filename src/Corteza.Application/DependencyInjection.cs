@@ -13,6 +13,7 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddApplication(this IServiceCollection services)
     {
+        services.AddSingleton(TimeProvider.System); // reemplazable en pruebas
         services.AddScoped<AuthService>();
         services.AddScoped<CustomerService>();
         services.AddScoped<SupplierService>();

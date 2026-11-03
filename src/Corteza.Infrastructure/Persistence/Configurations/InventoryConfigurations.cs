@@ -24,6 +24,13 @@ internal sealed class SupplyConfiguration : IEntityTypeConfiguration<Supply>
             t.HasCheckConstraint("CK_Supplies_MinStock", "[MinStock] >= 0");
         });
 
+        b.Property(s => s.Code)
+            .HasMaxLength(12)
+            .HasDefaultValueSql(Sequences.CodeDefault("INS-", Sequences.Supply, "000"));
+        b.HasIndex(s => s.Code).IsUnique();
+        b.Property(s => s.RowVersion).IsRowVersion();
+        b.Ignore(s => s.Status);
+
         b.Property(s => s.Name).HasMaxLength(100);
         b.Property(s => s.PurchaseUnit).HasMaxLength(60);
         b.Property(s => s.UnitLabel).HasMaxLength(20);

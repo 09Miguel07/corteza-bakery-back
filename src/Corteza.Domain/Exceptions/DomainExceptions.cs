@@ -28,3 +28,13 @@ public sealed class InvalidAmountException(string message = "Monto inválido: de
 
 public sealed class InvalidQuantityException(string message = "La cantidad debe ser mayor que cero.")
     : DomainException(message);
+
+public sealed class InvalidSupplyException(string message) : DomainException(message);
+
+/// <summary>Taller 4: no se retira más de lo disponible. El mensaje siempre empieza por "Stock insuficiente".</summary>
+public sealed class InsufficientStockException(decimal available, decimal requested, string unitLabel, string supplyName)
+    : DomainException($"Stock insuficiente: hay {Formats.Qty(available)} {unitLabel} de {supplyName} y se intentan sacar {Formats.Qty(requested)}.")
+{
+    public decimal Available { get; } = available;
+    public decimal Requested { get; } = requested;
+}

@@ -1,6 +1,7 @@
 using Corteza.Application.Common.Exceptions;
 using Corteza.Application.Common.Interfaces;
 using Corteza.Application.Common.Models;
+using Corteza.Application.Common.Time;
 using Corteza.Application.Common.Validation;
 using Corteza.Domain.Entities;
 using Corteza.Domain.Enums;
@@ -8,7 +9,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Corteza.Application.Features.Inventory;
 
-public sealed class SupplyService(IAppDbContext db, ICurrentUser currentUser)
+public sealed class SupplyService(IAppDbContext db, ICurrentUser currentUser, TimeProvider time)
 {
     public async Task<PagedResult<SupplyListItem>> ListAsync(SupplyQuery q, CancellationToken ct)
     {
@@ -73,23 +74,10 @@ public sealed class SupplyService(IAppDbContext db, ICurrentUser currentUser)
         await EnsureUniqueNameAsync(name, excludeId: null, ct);
         await ValidateReferencesAsync(request, ct);
 
-        var supply = new Supply { Name = name, CurrentStock = request.InitialStock };
-        Apply(supply, request);
-
-        // El stock inicial queda como movimiento para que el historial cuadre con la existencia.
-        if (request.InitialStock > 0)
-        {
-            supply.Movements.Add(new InventoryMovement
-            {
-                Type = MovementType.In,
-                Quantity = request.InitialStock,
-                StockAfter = request.InitialStock,
-                SupplierId = request.MainSupplierId,
-                MovementDate = DateOnly.FromDateTime(DateTime.Today),
-                Notes = "Stock inicial al registrar el insumo",
-                CreatedByUserId = currentUser.RequireUserId(),
-            });
-        }
+        var supply = Supply.Create(
+            name, request.CategoryId, Normalize.Text(request.PurchaseUnit), Normalize.Text(request.UnitLabel),
+            request.UnitSizeKg, request.InitialStock, request.MinStock, request.MainSupplierId,
+            currentUser.RequireUserId(), time.ColombiaToday());
 
         db.Supplies.Add(supply);
         await db.SaveChangesAsync(ct);
@@ -106,8 +94,9 @@ public sealed class SupplyService(IAppDbContext db, ICurrentUser currentUser)
         await EnsureUniqueNameAsync(name, excludeId: id, ct);
         await ValidateReferencesAsync(request, ct);
 
-        supply.Name = name;
-        Apply(supply, request);
+        supply.UpdateDetails(
+            name, request.CategoryId, Normalize.Text(request.PurchaseUnit), Normalize.Text(request.UnitLabel),
+            request.UnitSizeKg, request.MinStock, request.MainSupplierId);
         supply.UpdatedAt = DateTime.UtcNow;
 
         await db.SaveChangesAsync(ct);
@@ -120,7 +109,7 @@ public sealed class SupplyService(IAppDbContext db, ICurrentUser currentUser)
             ?? throw NotFoundException.For("el insumo", id);
         if (supply.IsActive == active) return;
 
-        supply.IsActive = active;
+        supply.SetActive(active);
         supply.UpdatedAt = DateTime.UtcNow;
         await db.SaveChangesAsync(ct);
     }
@@ -141,30 +130,19 @@ public sealed class SupplyService(IAppDbContext db, ICurrentUser currentUser)
             throw new BusinessRuleException("El proveedor principal no existe o está inactivo.");
     }
 
-    private static void Apply(Supply supply, SupplyUpdateRequest request)
-    {
-        supply.CategoryId = request.CategoryId;
-        supply.PurchaseUnit = Normalize.Text(request.PurchaseUnit);
-        supply.UnitLabel = Normalize.Text(request.UnitLabel).ToLowerInvariant();
-        supply.UnitSizeKg = request.UnitSizeKg;
-        supply.MinStock = request.MinStock;
-        supply.MainSupplierId = request.MainSupplierId;
-    }
 
     // Fila plana que EF traduce a SQL; el estado se calcula en memoria.
     private sealed record SupplyRow(
-        int Id, string Name, int CategoryId, string CategoryName, string PurchaseUnit, string UnitLabel,
+        int Id, string Code, string Name, int CategoryId, string CategoryName, string PurchaseUnit, string UnitLabel,
         decimal? UnitSizeKg, decimal CurrentStock, decimal MinStock, int? MainSupplierId, string? MainSupplierName, bool IsActive);
 
     private static readonly System.Linq.Expressions.Expression<Func<Supply, SupplyRow>> Projection = s => new SupplyRow(
-        s.Id, s.Name, s.CategoryId, s.Category.Name, s.PurchaseUnit, s.UnitLabel, s.UnitSizeKg,
+        s.Id, s.Code, s.Name, s.CategoryId, s.Category.Name, s.PurchaseUnit, s.UnitLabel, s.UnitSizeKg,
         s.CurrentStock, s.MinStock, s.MainSupplierId, s.MainSupplier != null ? s.MainSupplier.Name : null, s.IsActive);
 
     private static SupplyListItem ToItem(SupplyRow r) => new(
-        r.Id, r.Name, r.CategoryId, r.CategoryName, r.PurchaseUnit, r.UnitLabel, r.UnitSizeKg,
-        r.CurrentStock, r.MinStock, StatusOf(r.CurrentStock, r.MinStock),
+        r.Id, r.Code, r.Name, r.CategoryId, r.CategoryName, r.PurchaseUnit, r.UnitLabel, r.UnitSizeKg,
+        r.CurrentStock, r.MinStock, Supply.StatusOf(r.CurrentStock, r.MinStock),
         r.MainSupplierId, r.MainSupplierName, r.IsActive);
 
-    internal static StockStatus StatusOf(decimal current, decimal min) =>
-        current <= 0 ? StockStatus.Out : current < min ? StockStatus.Low : StockStatus.Ok;
 }

@@ -113,24 +113,11 @@ public sealed class DbInitializer(
             NewSupplier("Frutas del Norte", "900890123-7", "Gloria Pineda", "3123344556", "contacto@frutasdelnorte.com", false, "Frutas"));
 
         // ---------- Inventario (pantalla 03.1) ----------
-        Supply NewSupply(string name, string category, string unit, string label, decimal? kg, decimal stock, decimal min, Supplier? supplier)
-        {
-            var supply = new Supply
-            {
-                Name = name, Category = categories[category], PurchaseUnit = unit, UnitLabel = label, UnitSizeKg = kg,
-                CurrentStock = stock, MinStock = min, MainSupplier = supplier,
-            };
-            if (stock > 0)
-            {
-                supply.Movements.Add(new InventoryMovement
-                {
-                    Type = MovementType.In, Quantity = stock, StockAfter = stock, Supplier = supplier,
-                    MovementDate = DateOnly.FromDateTime(DateTime.Today), Notes = "Stock inicial (datos de demostración)",
-                    CreatedByUserId = admin.Id,
-                });
-            }
-            return supply;
-        }
+        await db.SaveChangesAsync(ct); // las categorías y proveedores necesitan Id para los insumos
+        var today = DateOnly.FromDateTime(DateTime.Today);
+
+        Supply NewSupply(string name, string category, string unit, string label, decimal? kg, decimal stock, decimal min, Supplier? supplier) =>
+            Supply.Create(name, categories[category].Id, unit, label, kg, stock, min, supplier?.Id, admin.Id, today);
 
         db.Supplies.AddRange(
             NewSupply("Harina de trigo", "Harinas", "Bulto de 50 kg", "bultos", 50, 65, 20, molinos),

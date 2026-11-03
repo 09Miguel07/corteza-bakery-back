@@ -1,6 +1,7 @@
 using Corteza.Application.Common.Exceptions;
 using Corteza.Application.Common.Interfaces;
 using Corteza.Application.Common.Models;
+using Corteza.Application.Common.Time;
 using Corteza.Application.Common.Validation;
 using Corteza.Domain.Entities;
 using Corteza.Domain.Enums;
@@ -8,12 +9,12 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Corteza.Application.Features.Inventory;
 
-public sealed class InventoryMovementService(IAppDbContext db, ICurrentUser currentUser)
+public sealed class InventoryMovementService(IAppDbContext db, ICurrentUser currentUser, TimeProvider time)
 {
     /// <summary>
-    /// Registra una entrada o salida y actualiza la existencia en una sola transacción.
-    /// El UPDATE es atómico (stock = stock ± cantidad), así dos registros al mismo tiempo no se pisan.
-    /// Una salida nunca deja el stock en negativo (regla del Sprint 2: "Stock insuficiente").
+    /// Registra una entrada o salida. La regla ("Stock insuficiente") vive en <see cref="Supply"/>;
+    /// aquí solo se carga, se delega y se guarda. Si otro usuario movió el mismo insumo al mismo tiempo,
+    /// el RowVersion hace fallar el guardado (409) en vez de pisar el stock.
     /// </summary>
     public async Task<MovementDto> RegisterAsync(MovementCreateRequest request, CancellationToken ct)
     {
@@ -21,15 +22,12 @@ public sealed class InventoryMovementService(IAppDbContext db, ICurrentUser curr
             throw new BusinessRuleException("Los ajustes de inventario todavía no están habilitados. Registra una entrada o una salida.");
 
         var userId = currentUser.RequireUserId();
-        var today = DateOnly.FromDateTime(DateTime.Today);
+        var today = time.ColombiaToday();
         var movementDate = request.MovementDate ?? today;
         if (movementDate > today)
             throw new BusinessRuleException("La fecha del movimiento no puede ser futura.");
 
-        var supply = await db.Supplies.AsNoTracking()
-            .Where(s => s.Id == request.SupplyId)
-            .Select(s => new { s.Id, s.Name, s.UnitLabel, s.IsActive, s.CurrentStock })
-            .FirstOrDefaultAsync(ct)
+        var supply = await db.Supplies.FirstOrDefaultAsync(s => s.Id == request.SupplyId, ct)
             ?? throw NotFoundException.For("el insumo", request.SupplyId);
 
         if (!supply.IsActive)
@@ -38,49 +36,15 @@ public sealed class InventoryMovementService(IAppDbContext db, ICurrentUser curr
         if (request.SupplierId is { } supplierId && !await db.Suppliers.AnyAsync(s => s.Id == supplierId, ct))
             throw new BusinessRuleException("El proveedor elegido no existe.");
 
-        var quantity = request.Quantity;
-        var now = DateTime.UtcNow;
+        var movement = request.Type == MovementType.In
+            ? supply.RegisterEntry(request.Quantity, userId, movementDate, request.SupplierId,
+                location: Normalize.OptionalText(request.Location),
+                expirationDate: request.ExpirationDate,
+                notes: Normalize.OptionalText(request.Notes))
+            : supply.RegisterExit(request.Quantity, userId, movementDate, Normalize.OptionalText(request.Notes));
 
-        await using var tx = await db.Database.BeginTransactionAsync(ct);
-
-        int affected = request.Type == MovementType.In
-            ? await db.Supplies
-                .Where(s => s.Id == supply.Id)
-                .ExecuteUpdateAsync(set => set
-                    .SetProperty(s => s.CurrentStock, s => s.CurrentStock + quantity)
-                    .SetProperty(s => s.UpdatedAt, (DateTime?)now), ct)
-            : await db.Supplies
-                .Where(s => s.Id == supply.Id && s.CurrentStock >= quantity)
-                .ExecuteUpdateAsync(set => set
-                    .SetProperty(s => s.CurrentStock, s => s.CurrentStock - quantity)
-                    .SetProperty(s => s.UpdatedAt, (DateTime?)now), ct);
-
-        if (affected == 0)
-        {
-            var available = await db.Supplies.Where(s => s.Id == supply.Id).Select(s => s.CurrentStock).FirstAsync(ct);
-            throw new BusinessRuleException(
-                $"Stock insuficiente: hay {available:0.##} {supply.UnitLabel} de {supply.Name} y se intentan sacar {quantity:0.##}.");
-        }
-
-        var stockAfter = await db.Supplies.Where(s => s.Id == supply.Id).Select(s => s.CurrentStock).FirstAsync(ct);
-
-        var movement = new InventoryMovement
-        {
-            SupplyId = supply.Id,
-            Type = request.Type,
-            Quantity = quantity,
-            StockAfter = stockAfter,
-            SupplierId = request.Type == MovementType.In ? request.SupplierId : null,
-            MovementDate = movementDate,
-            Location = Normalize.OptionalText(request.Location),
-            ExpirationDate = request.ExpirationDate,
-            Notes = Normalize.OptionalText(request.Notes),
-            CreatedByUserId = userId,
-            CreatedAt = now,
-        };
-        db.InventoryMovements.Add(movement);
+        supply.UpdatedAt = DateTime.UtcNow;
         await db.SaveChangesAsync(ct);
-        await tx.CommitAsync(ct);
 
         return await GetAsync(movement.Id, ct);
     }
@@ -92,7 +56,7 @@ public sealed class InventoryMovementService(IAppDbContext db, ICurrentUser curr
 
         var query = db.InventoryMovements.AsNoTracking().Where(m => m.SupplyId == supplyId);
         var total = await query.CountAsync(ct);
-        var items = await Project(query.OrderByDescending(m => m.CreatedAt).Skip(q.Skip).Take(q.PageSize)).ToListAsync(ct);
+        var items = await Project(query.OrderByDescending(m => m.CreatedAt).ThenByDescending(m => m.Id).Skip(q.Skip).Take(q.PageSize)).ToListAsync(ct);
         return new PagedResult<MovementDto>(items, total, q.Page, q.PageSize);
     }
 
