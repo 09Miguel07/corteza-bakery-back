@@ -1,0 +1,48 @@
+### Peticiones de prueba (VS Code REST Client o Visual Studio). Correr primero el login.
+@api = http://localhost:5080/api
+
+# @name login
+POST {{api}}/auth/login
+Content-Type: application/json
+
+{ "username": "laura.gomez", "password": "Corteza2026*" }
+
+###
+@token = {{login.response.body.token}}
+
+GET {{api}}/auth/me
+Authorization: Bearer {{token}}
+
+###
+GET {{api}}/customers?name=maria&page=1&pageSize=8
+Authorization: Bearer {{token}}
+
+###
+POST {{api}}/customers
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "documentNumber": "1.098.765.432",
+  "firstNames": "Paola",
+  "lastNames": "Cárdenas Ruiz",
+  "phone": "315 222 3344",
+  "email": "paola.cardenas@gmail.com",
+  "birthday": "1996-08-21"
+}
+
+###
+GET {{api}}/supplies?stock=Low
+Authorization: Bearer {{token}}
+
+###
+# Regla del Sprint 2: sacar más de lo disponible responde 422 "Stock insuficiente"
+POST {{api}}/inventory-movements
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "supplyId": 2, "type": "Out", "quantity": 50 }
+
+###
+GET {{api}}/dashboard/summary
+Authorization: Bearer {{token}}

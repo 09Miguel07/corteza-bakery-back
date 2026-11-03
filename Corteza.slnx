@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Corteza.Api/Corteza.Api.csproj" />
+    <Project Path="src/Corteza.Application/Corteza.Application.csproj" />
+    <Project Path="src/Corteza.Domain/Corteza.Domain.csproj" />
+    <Project Path="src/Corteza.Infrastructure/Corteza.Infrastructure.csproj" />
+  </Folder>
+</Solution>
