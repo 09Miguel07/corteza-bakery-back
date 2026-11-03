@@ -57,7 +57,7 @@ public sealed class SupplierService(IAppDbContext db)
                     .OrderBy(l => l.SupplyCategory.Name)
                     .Select(l => new CategoryRef(l.SupplyCategoryId, l.SupplyCategory.Name))
                     .ToList(),
-                s.PurchaseOrders.Count(o => o.Status == PurchaseOrderStatus.Requested || o.Status == PurchaseOrderStatus.Confirmed)))
+                s.PurchaseOrders.Count(o => o.Status == PurchaseOrderStatus.Pending || o.Status == PurchaseOrderStatus.Approved)))
             .FirstOrDefaultAsync(ct)
             ?? throw NotFoundException.For("el proveedor", id);
     }
@@ -117,7 +117,7 @@ public sealed class SupplierService(IAppDbContext db)
 
         var hasActiveOrders = await db.PurchaseOrders
             .AnyAsync(o => o.SupplierId == id
-                && (o.Status == PurchaseOrderStatus.Requested || o.Status == PurchaseOrderStatus.Confirmed), ct);
+                && (o.Status == PurchaseOrderStatus.Pending || o.Status == PurchaseOrderStatus.Approved), ct);
 
         supplier.Deactivate(hasActiveOrders); // la regla vive en el dominio
         supplier.UpdatedAt = DateTime.UtcNow;

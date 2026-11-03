@@ -45,3 +45,7 @@ public sealed class QuotationNotAllowedException(string message) : DomainExcepti
 
 public sealed class DuplicateQuotationException(string supplierName)
     : DomainException($"El proveedor {supplierName} ya registró una cotización para esta solicitud.");
+
+public sealed class InvalidPurchaseOrderException(string message) : DomainException(message);
+
+public sealed class InvalidOrderStateException(string message) : DomainException(message);

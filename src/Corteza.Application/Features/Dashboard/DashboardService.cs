@@ -26,7 +26,7 @@ public sealed class DashboardService(IAppDbContext db)
             LowStockSupplies: await db.Supplies.CountAsync(s => s.IsActive && s.CurrentStock < s.MinStock, ct),
             ActiveSuppliers: await db.Suppliers.CountAsync(s => s.IsActive, ct),
             PendingPurchaseOrders: await db.PurchaseOrders.CountAsync(
-                o => o.Status == PurchaseOrderStatus.Requested || o.Status == PurchaseOrderStatus.Confirmed, ct),
+                o => o.Status == PurchaseOrderStatus.Pending || o.Status == PurchaseOrderStatus.Approved, ct),
             ActiveEmployees: await db.Employees.CountAsync(e => e.IsActive, ct));
     }
 }

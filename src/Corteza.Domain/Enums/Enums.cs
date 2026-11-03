@@ -32,7 +32,8 @@ public enum MovementType { In, Out, Adjustment }
 /// <summary>Estado de existencias (pantalla 03.1): suficiente, por acabarse o agotado.</summary>
 public enum StockStatus { Ok, Low, Out }
 
-public enum PurchaseOrderStatus { Draft, Requested, Confirmed, Received, Cancelled }
+/// <summary>Pendiente → Aprobada → Recibida. Solo una pendiente se cancela.</summary>
+public enum PurchaseOrderStatus { Pending, Approved, Received, Cancelled }
 
 public enum PurchaseInvoiceStatus { Pending, Paid }
 

@@ -43,8 +43,14 @@ internal sealed class PurchaseOrderConfiguration : IEntityTypeConfiguration<Purc
         b.HasIndex(o => o.Code).IsUnique();
         b.HasIndex(o => new { o.SupplierId, o.Status });
 
+        b.Property(o => o.CancelReason).HasMaxLength(200);
+        b.Ignore(o => o.IsActive);
+
         b.HasOne(o => o.Supplier).WithMany(s => s.PurchaseOrders).HasForeignKey(o => o.SupplierId);
         b.HasOne(o => o.CreatedBy).WithMany().HasForeignKey(o => o.CreatedByUserId);
+        b.HasOne(o => o.ApprovedBy).WithMany().HasForeignKey(o => o.ApprovedByUserId);
+        b.HasOne(o => o.Quotation).WithMany().HasForeignKey(o => o.QuotationId);
+        b.HasIndex(o => o.QuotationId).IsUnique(); // una cotización genera como máximo una orden
         b.HasMany(o => o.Items).WithOne().HasForeignKey(i => i.PurchaseOrderId);
     }
 }
@@ -59,7 +65,7 @@ internal sealed class PurchaseOrderItemConfiguration : IEntityTypeConfiguration<
             t.HasCheckConstraint("CK_PurchaseOrderItems_UnitPrice", "[UnitPrice] >= 0");
         });
         b.Property(i => i.Quantity).HasPrecision(12, 2);
-        b.Property(i => i.LineTotal).HasComputedColumnSql("[Quantity] * [UnitPrice]", stored: true);
+        b.Ignore(i => i.LineTotal); // se calcula en el dominio (Quantity * UnitPrice)
         b.HasOne(i => i.Supply).WithMany().HasForeignKey(i => i.SupplyId);
         b.HasIndex(i => new { i.PurchaseOrderId, i.SupplyId }).IsUnique();
     }
