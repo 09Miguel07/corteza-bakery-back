@@ -64,6 +64,35 @@ internal sealed class TestDb : IDisposable
         return supply;
     }
 
+    public async Task<Product> AddProductAsync(string name, decimal price)
+    {
+        var product = Context.Products.Add(new Product { Name = name, Price = price, Category = Domain.Enums.ProductCategory.Bakery }).Entity;
+        await Context.SaveChangesAsync();
+        Saves.Reset();
+        return product;
+    }
+
+    public async Task<DiningTable> AddTableAsync(short number)
+    {
+        var table = Context.DiningTables.Add(new DiningTable { Number = number, Capacity = 4 }).Entity;
+        await Context.SaveChangesAsync();
+        Saves.Reset();
+        return table;
+    }
+
+    public async Task<Employee> AddEmployeeAsync(string firstNames, decimal salary, DateOnly? hired = null, bool active = true)
+    {
+        var employee = Context.Employees.Add(new Employee
+        {
+            FirstNames = firstNames, LastNames = "Pérez", DocumentNumber = Guid.NewGuid().ToString("N")[..10], Position = "Panadero",
+            Department = "Producción", MonthlySalary = salary, HireDate = hired ?? new DateOnly(2024, 1, 15), IsActive = active,
+            BankName = "Bancolombia", BankAccountNumber = "12345678901",
+        }).Entity;
+        await Context.SaveChangesAsync();
+        Saves.Reset();
+        return employee;
+    }
+
     private CortezaDbContext Create(bool withCounter)
     {
         var builder = new DbContextOptionsBuilder<CortezaDbContext>()
