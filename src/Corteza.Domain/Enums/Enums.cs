@@ -40,3 +40,6 @@ public enum PurchaseInvoiceStatus { Pending, Paid }
 public enum RfqStatus { Open, Closed, Cancelled }
 
 public enum QuotationStatus { Received, Selected, Rejected }
+
+/// <summary>Estado de la mesa (pantalla 02.4). No se guarda: se deriva del pedido abierto.</summary>
+public enum TableState { Free, Occupied, AwaitingPayment }
