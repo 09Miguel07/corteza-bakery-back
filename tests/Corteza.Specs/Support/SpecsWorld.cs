@@ -3,6 +3,7 @@ using Corteza.Application.Common.Interfaces;
 using Corteza.Application.Features.Inventory;
 using Corteza.Application.Features.Purchasing;
 using Corteza.Application.Features.Quotations;
+using Corteza.Application.Features.Sales;
 using Corteza.Application.Features.Suppliers;
 using Corteza.Domain.Entities;
 using Corteza.Domain.Exceptions;
@@ -35,6 +36,7 @@ public sealed class SpecsWorld : IDisposable
         Movements = new InventoryMovementService(Db, currentUser, Time);
         Orders = new PurchaseOrderService(Db, currentUser, Time);
         Quotations = new QuotationService(Db, currentUser, Time);
+        Orders2 = new OrderService(Db, currentUser, Time);
     }
 
     public CortezaDbContext Db { get; }
@@ -46,6 +48,12 @@ public sealed class SpecsWorld : IDisposable
     public InventoryMovementService Movements { get; }
     public PurchaseOrderService Orders { get; }
     public QuotationService Quotations { get; }
+    public OrderService Orders2 { get; }
+
+    public Dictionary<string, int> ProductIds { get; } = [];
+    public Dictionary<int, int> TableIds { get; } = [];
+    public int SalesOrderId { get; set; }
+    public SalesInvoiceDetail? LastInvoice { get; set; }
 
     public Dictionary<string, int> SupplierIds { get; } = [];
     public Dictionary<string, int> SupplyIds { get; } = [];

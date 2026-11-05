@@ -50,7 +50,7 @@ dotnet test --collect:"XPlat Code Coverage"                     # cobertura de l
 
 La integración continua (`.github/workflows/ci.yml`) compila y corre las pruebas en cada push y pull request.
 
-## Endpoints del incremento
+## Endpoints
 
 | Método | Ruta | Uso |
 |---|---|---|
@@ -62,5 +62,18 @@ La integración continua (`.github/workflows/ci.yml`) compila y corre las prueba
 | POST | `/api/purchase-orders/{id}/approve` | Aprobar: descuenta el presupuesto del proveedor |
 | POST | `/api/purchase-orders/{id}/cancel` | Cancelar con motivo |
 | POST | `/api/purchase-orders/{id}/receive` | Recibir: entra la mercancía al inventario |
+
+| GET, POST | `/api/purchase-invoices` (+ `/summary`) | Facturas de compra: registrar y ver por pagar / vencidas |
+| POST | `/api/purchase-invoices/{id}/pay` | Marcar pagada |
+| GET, POST | `/api/orders` (+ `/summary`) | Pedidos de venta |
+| PATCH | `/api/orders/{id}/status` | Recibido → En preparación → Listo → Entregado, o Cancelado |
+| POST | `/api/orders/{id}/request-bill` · `/checkout` | Pedir la cuenta · cobrar (emite la factura, calcula el cambio y libera la mesa) |
+| GET | `/api/dining-tables/status` | Mesas: libre, ocupada o por cobrar |
+| GET, POST | `/api/sales-invoices` · `/{id}/void` | Facturas de venta y anulación con motivo |
+| GET, POST | `/api/payroll-periods` · `/{id}/generate` · `/approve` · `/pay` | Nómina por periodo |
+| GET | `/api/payslips/{id}` | Comprobante de nómina |
+| GET | `/api/reports/overview?range=Today\|Week\|Month` | Reporte del administrador |
+
+Nómina: salario proporcional a los días (mes de 30), auxilio de transporte hasta 2 SMMLV y salud y pensión del 4 % cada una, con los valores de 2026 (SMMLV $1.750.905, auxilio $249.095). ⚠️ Se actualizan cada enero en `PayrollSettings`.
 
 Errores de negocio → `422` con `ProblemDetails`; conflicto de concurrencia → `409`.
