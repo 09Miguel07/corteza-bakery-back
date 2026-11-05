@@ -80,3 +80,30 @@ public sealed class QuotationRequestsController(QuotationService quotations) : C
         return NoContent();
     }
 }
+
+/// <summary>Pantalla 05.4 · Facturas de compra: registrar, consultar por pagar / vencidas y pagar.</summary>
+[ApiController]
+[Route("api/purchase-invoices")]
+[Authorize(Policy = Policies.Purchases)]
+public sealed class PurchaseInvoicesController(PurchaseInvoiceService invoices) : ControllerBase
+{
+    [HttpGet]
+    public Task<PagedResult<PurchaseInvoiceListItem>> List([FromQuery] PurchaseInvoiceQuery query, CancellationToken ct) =>
+        invoices.ListAsync(query, ct);
+
+    [HttpGet("summary")]
+    public Task<PurchaseInvoiceSummary> Summary(CancellationToken ct) => invoices.SummaryAsync(ct);
+
+    [HttpGet("{id:int}")]
+    public Task<PurchaseInvoiceListItem> Get(int id, CancellationToken ct) => invoices.GetAsync(id, ct);
+
+    [HttpPost]
+    public async Task<ActionResult<PurchaseInvoiceListItem>> Create(PurchaseInvoiceCreateRequest request, CancellationToken ct)
+    {
+        var created = await invoices.CreateAsync(request, ct);
+        return CreatedAtAction(nameof(Get), new { id = created.Id }, created);
+    }
+
+    [HttpPost("{id:int}/pay")]
+    public Task<PurchaseInvoiceListItem> Pay(int id, CancellationToken ct) => invoices.PayAsync(id, ct);
+}

@@ -51,6 +51,10 @@ public sealed class CortezaDbContext(DbContextOptions<CortezaDbContext> options)
         {
             if (!foreignKey.IsOwnership && !CascadeChildren.Contains(foreignKey.DeclaringEntityType.ClrType))
                 foreignKey.DeleteBehavior = DeleteBehavior.Restrict;
+
+            // Recalcular la nómina en borrador reemplaza los comprobantes del periodo (y sus líneas).
+            if (foreignKey.DeclaringEntityType.ClrType == typeof(Payslip) && foreignKey.PrincipalEntityType.ClrType == typeof(PayrollPeriod))
+                foreignKey.DeleteBehavior = DeleteBehavior.Cascade;
         }
     }
 

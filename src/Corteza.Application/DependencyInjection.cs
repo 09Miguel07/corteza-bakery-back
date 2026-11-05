@@ -4,9 +4,13 @@ using Corteza.Application.Features.Customers;
 using Corteza.Application.Features.Dashboard;
 using Corteza.Application.Features.Employees;
 using Corteza.Application.Features.Inventory;
+using Corteza.Application.Features.Payroll;
 using Corteza.Application.Features.Purchasing;
 using Corteza.Application.Features.Quotations;
+using Corteza.Application.Features.Reports;
+using Corteza.Application.Features.Sales;
 using Corteza.Application.Features.Suppliers;
+using Corteza.Domain.Entities;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Corteza.Application;
@@ -27,6 +31,12 @@ public static class DependencyInjection
         services.AddScoped<DashboardService>();
         services.AddScoped<PurchaseOrderService>();
         services.AddScoped<QuotationService>();
+        services.AddScoped<PurchaseInvoiceService>();
+        services.AddScoped<OrderService>();
+        services.AddScoped<SalesInvoiceService>();
+        services.AddSingleton(PayrollSettings.Colombia2026); // ⚠️ actualizar cada enero con el decreto del salario mínimo
+        services.AddScoped<PayrollService>();
+        services.AddScoped<ReportService>();
         return services;
     }
 }
