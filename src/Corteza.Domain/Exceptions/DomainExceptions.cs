@@ -49,3 +49,18 @@ public sealed class DuplicateQuotationException(string supplierName)
 public sealed class InvalidPurchaseOrderException(string message) : DomainException(message);
 
 public sealed class InvalidOrderStateException(string message) : DomainException(message);
+
+public sealed class InvalidPurchaseInvoiceException(string message) : DomainException(message);
+
+public sealed class InvalidOrderException(string message) : DomainException(message);
+
+public sealed class TableOccupiedException(int tableNumber)
+    : DomainException($"La mesa {tableNumber} ya tiene un pedido abierto.");
+
+/// <summary>En efectivo, lo recibido debe cubrir el total (también lo exige CK_SalesInvoices_Cash).</summary>
+public sealed class InsufficientCashException(decimal total, decimal received)
+    : DomainException($"Efectivo insuficiente: el pedido vale {Formats.Cop(total)} y se recibieron {Formats.Cop(received)}.");
+
+public sealed class InvalidSalesInvoiceException(string message) : DomainException(message);
+
+public sealed class InvalidPayrollException(string message) : DomainException(message);

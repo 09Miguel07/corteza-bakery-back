@@ -156,20 +156,61 @@ public class PurchaseOrderItem
     public decimal LineTotal => Quantity * UnitPrice;
 }
 
+/// <summary>
+/// Factura de compra (pantalla 05.4): lo que nos cobra un proveedor. "Vencida" no se guarda:
+/// es una factura pendiente cuyo vencimiento ya pasó.
+/// </summary>
 public class PurchaseInvoice
 {
     public int Id { get; set; }
-    public string SupplierInvoiceNumber { get; set; } = null!; // FC-9921, lo da el proveedor
-    public int SupplierId { get; set; }
+    public string SupplierInvoiceNumber { get; private set; } = null!; // FC-9921, lo da el proveedor
+    public int SupplierId { get; private set; }
     public Supplier Supplier { get; set; } = null!;
-    public int? PurchaseOrderId { get; set; }
+    public int? PurchaseOrderId { get; private set; }
     public PurchaseOrder? PurchaseOrder { get; set; }
-    public string? Description { get; set; }
-    public DateOnly IssueDate { get; set; }
-    public DateOnly DueDate { get; set; }
-    public decimal Total { get; set; }
-    public PurchaseInvoiceStatus Status { get; set; } = PurchaseInvoiceStatus.Pending;
-    public DateTime? PaidAt { get; set; }
+    public string? Description { get; private set; }
+    public DateOnly IssueDate { get; private set; }
+    public DateOnly DueDate { get; private set; }
+    public decimal Total { get; private set; }
+    public PurchaseInvoiceStatus Status { get; private set; } = PurchaseInvoiceStatus.Pending;
+    public DateTime? PaidAt { get; private set; }
 
-    // "VENCIDA" no se guarda: es Pending con DueDate anterior a hoy.
+    private PurchaseInvoice() { }
+
+    public static PurchaseInvoice Create(Supplier supplier, string number, DateOnly issueDate, DateOnly dueDate,
+        decimal total, PurchaseOrder? order, string? description)
+    {
+        if (string.IsNullOrWhiteSpace(number))
+            throw new InvalidPurchaseInvoiceException("Escribe el número de la factura del proveedor.");
+        if (total <= 0) throw new InvalidAmountException();
+        if (dueDate < issueDate)
+            throw new InvalidPurchaseInvoiceException("La fecha de vencimiento no puede ser anterior a la de emisión.");
+        if (order is not null)
+        {
+            if (order.SupplierId != supplier.Id)
+                throw new InvalidPurchaseInvoiceException($"La orden {order.Code} es de otro proveedor.");
+            if (order.Status == PurchaseOrderStatus.Cancelled)
+                throw new InvalidPurchaseInvoiceException("No se puede facturar una orden cancelada.");
+        }
+
+        return new PurchaseInvoice
+        {
+            SupplierInvoiceNumber = number.Trim().ToUpperInvariant(),
+            SupplierId = supplier.Id,
+            PurchaseOrderId = order?.Id,
+            Description = string.IsNullOrWhiteSpace(description) ? null : description.Trim(),
+            IssueDate = issueDate,
+            DueDate = dueDate,
+            Total = total,
+        };
+    }
+
+    public bool IsOverdue(DateOnly today) => Status == PurchaseInvoiceStatus.Pending && DueDate < today;
+
+    public void Pay(DateTime now)
+    {
+        if (Status == PurchaseInvoiceStatus.Paid) throw new InvalidPurchaseInvoiceException("La factura ya está pagada.");
+        Status = PurchaseInvoiceStatus.Paid;
+        PaidAt = now;
+    }
 }
