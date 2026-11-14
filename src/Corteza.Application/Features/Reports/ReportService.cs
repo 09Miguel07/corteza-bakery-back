@@ -69,14 +69,18 @@ public sealed class ReportService(IAppDbContext db, TimeProvider time)
             .Select(day => new DailySales(day, week.Where(i => ColombiaDay(i.IssuedAt) == day).Sum(i => i.Total)))
             .ToList();
 
-        var top = await db.SalesInvoices.AsNoTracking()
+        // Se agrupa en memoria: EF no traduce bien GroupBy + Sum sobre SelectMany en esta consulta.
+        var lines = await db.SalesInvoices.AsNoTracking()
             .Where(i => i.Status == SalesInvoiceStatus.Paid && i.IssuedAt >= fromUtc && i.IssuedAt < toUtc)
             .SelectMany(i => i.Order.Items)
-            .GroupBy(l => l.Product.Name)
+            .Select(l => new { l.Product.Name, l.Quantity, l.LineTotal })
+            .ToListAsync(ct);
+        var top = lines
+            .GroupBy(l => l.Name)
             .Select(g => new TopProduct(g.Key, g.Sum(l => (int)l.Quantity), g.Sum(l => l.LineTotal)))
             .OrderByDescending(t => t.Quantity).ThenByDescending(t => t.Revenue)
             .Take(5)
-            .ToListAsync(ct);
+            .ToList();
 
         var critical = await db.Supplies.AsNoTracking()
             .Where(s => s.IsActive && s.CurrentStock < s.MinStock)
