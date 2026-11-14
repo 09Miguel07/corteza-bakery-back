@@ -1,0 +1,52 @@
+# Desarrollo en contenedores (útil si Windows bloquea las DLL con Smart App Control).
+#   docker compose -f docker-compose.dev.yml up
+# Levanta SQL Server + la API en http://localhost:5080 (crea la migración inicial si falta).
+# ⚠️ Contraseñas SOLO de desarrollo.
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_PID: "Developer"
+      MSSQL_SA_PASSWORD: "Corteza_Dev2026!"
+      MSSQL_COLLATION: "Modern_Spanish_CI_AI"
+    ports:
+      - "1433:1433"
+    volumes:
+      - corteza_sqldata:/var/opt/mssql
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$${MSSQL_SA_PASSWORD}\" -C -Q \"SELECT 1\" || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  api:
+    image: mcr.microsoft.com/dotnet/sdk:10.0
+    working_dir: /src
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+    ports:
+      - "5080:5080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:5080
+      ConnectionStrings__Corteza: "Server=sqlserver,1433;Database=Corteza;User Id=sa;Password=Corteza_Dev2026!;TrustServerCertificate=True"
+      DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+    volumes:
+      - .:/src
+      - nuget_cache:/root/.nuget/packages
+    command: >
+      bash -c "
+      dotnet tool install --global dotnet-ef >/dev/null 2>&1 || true;
+      export PATH=$$PATH:/root/.dotnet/tools;
+      dotnet restore src/Corteza.Api &&
+      if [ ! -d src/Corteza.Infrastructure/Persistence/Migrations ]; then
+        dotnet ef migrations add InitialSchema -p src/Corteza.Infrastructure -s src/Corteza.Api -o Persistence/Migrations;
+      fi &&
+      dotnet run --project src/Corteza.Api --no-launch-profile"
+
+volumes:
+  corteza_sqldata:
+  nuget_cache:
