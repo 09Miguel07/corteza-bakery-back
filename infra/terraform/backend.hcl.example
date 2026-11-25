@@ -1,0 +1,5 @@
+# Copia a backend.hcl con los valores que imprime infra/bootstrap (output backend_config).
+resource_group_name  = "rg-corteza-tfstate"
+storage_account_name = "stcortezatfXXXXXX"
+container_name       = "tfstate"
+key                  = "corteza.tfstate"

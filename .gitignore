@@ -23,3 +23,13 @@ appsettings.*.local.json
 
 # Secretos de Kubernetes
 k8s/secret.yaml
+
+# Terraform
+infra/**/.terraform/
+infra/**/*.tfstate*
+infra/**/*.tfplan
+infra/terraform/terraform.tfvars
+infra/terraform/backend.hcl
+
+# Generados por Reqnroll al compilar las pruebas
+*.feature.cs

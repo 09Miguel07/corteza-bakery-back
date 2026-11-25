@@ -1,0 +1,55 @@
+name: terraform-plan
+
+# Cada pull request que cambie archivos .tf recibe el plan como comentario.
+# Si el plan falla, el job falla y el cambio no se puede integrar.
+# Requisitos (una sola vez): aplicación de Azure con credencial federada para este repositorio y
+# los secretos AZURE_CLIENT_ID, AZURE_TENANT_ID, AZURE_SUBSCRIPTION_ID, TF_BACKEND_* y los TF_VAR_*.
+on:
+  pull_request:
+    branches: [main, develop]
+    paths: ["infra/**/*.tf", "infra/**/*.tfvars.example"]
+
+permissions:
+  id-token: write        # OIDC hacia Azure, sin contraseñas guardadas
+  contents: read
+  pull-requests: write   # comentar el plan
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: infra/terraform
+    env:
+      ARM_USE_OIDC: "true"
+      ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      TF_VAR_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      TF_VAR_sql_admin_password: ${{ secrets.SQL_ADMIN_PASSWORD }}
+      TF_VAR_jwt_key: ${{ secrets.JWT_KEY }}
+      TF_VAR_seed_password: ${{ secrets.SEED_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+      - run: terraform fmt -check -recursive ..
+      - name: Init con el estado remoto
+        run: >
+          terraform init -input=false
+          -backend-config="resource_group_name=${{ secrets.TF_BACKEND_RG }}"
+          -backend-config="storage_account_name=${{ secrets.TF_BACKEND_STORAGE }}"
+          -backend-config="container_name=tfstate"
+          -backend-config="key=corteza.tfstate"
+      - run: terraform validate -no-color
+      - id: plan
+        run: terraform plan -input=false -no-color -var environment=dev -out=tfplan
+      - uses: actions/github-script@v7
+        if: always()
+        env:
+          PLAN: ${{ steps.plan.outputs.stdout }}
+        with:
+          script: |
+            const body = "### terraform plan\n```\n" + (process.env.PLAN || "(sin salida)").slice(0, 60000) + "\n```";
+            await github.rest.issues.createComment({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: context.issue.number, body });

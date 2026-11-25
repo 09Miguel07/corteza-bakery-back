@@ -1,0 +1,4 @@
+# Copia a terraform.tfvars. Los secretos se pasan mejor por entorno:
+#   export TF_VAR_sql_admin_password=... TF_VAR_jwt_key=... TF_VAR_seed_password=...
+subscription_id = "00000000-0000-0000-0000-000000000000"
+environment     = "dev"
