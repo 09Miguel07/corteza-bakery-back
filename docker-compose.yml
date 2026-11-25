@@ -1,0 +1,58 @@
+# Corteza completo en contenedores: SQL Server + API + front (nginx).
+#
+#   Estructura esperada (los dos repos lado a lado):
+#     ./corteza-bakery-back   <- este repo
+#     ./corteza-bakery        <- el front
+#
+#   docker compose up --build        ->  http://localhost:8080  (front)  ·  http://localhost:5080/health (API)
+#
+# ⚠️ Contraseñas y llave JWT SOLO para demostración. En la nube van en secretos, nunca en el repo.
+name: corteza
+
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_PID: "Developer"
+      MSSQL_SA_PASSWORD: "Corteza_Dev2026!"
+      MSSQL_COLLATION: "Modern_Spanish_CI_AI"
+    volumes:
+      - sqldata:/var/opt/mssql
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$${MSSQL_SA_PASSWORD}\" -C -Q \"SELECT 1\" || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  api:
+    build: .
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+    ports:
+      - "5080:8080"
+    environment:
+      ConnectionStrings__Corteza: "Server=sqlserver,1433;Database=Corteza;User Id=sa;Password=Corteza_Dev2026!;TrustServerCertificate=True"
+      Jwt__Key: "demo-llave-jwt-de-al-menos-32-caracteres-cambiar"
+      Seed__DefaultPassword: "Corteza2026*"
+      Database__InitialiseOnStartup: "true" # migra y carga datos de demostración al arrancar
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/localhost/8080 && printf \"GET /health HTTP/1.0\\r\\n\\r\\n\" >&3 && grep -q ok <&3'"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  web:
+    build: ../corteza-bakery
+    depends_on:
+      - api
+    ports:
+      - "8080:80"
+    environment:
+      API_UPSTREAM: "http://api:8080"
+
+volumes:
+  sqldata:

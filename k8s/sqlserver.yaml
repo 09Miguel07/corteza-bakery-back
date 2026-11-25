@@ -1,0 +1,54 @@
+# SQL Server dentro del clúster (para demo). En producción real usa Azure SQL / Amazon RDS y
+# apunta ConnectionStrings__Corteza al servicio administrado.
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: sqlserver
+  namespace: corteza
+spec:
+  serviceName: sqlserver
+  replicas: 1
+  selector:
+    matchLabels: { app: sqlserver }
+  template:
+    metadata:
+      labels: { app: sqlserver }
+    spec:
+      containers:
+        - name: sqlserver
+          image: mcr.microsoft.com/mssql/server:2022-latest
+          ports:
+            - containerPort: 1433
+          env:
+            - { name: ACCEPT_EULA, value: "Y" }
+            - { name: MSSQL_PID, value: "Developer" }
+            - { name: MSSQL_COLLATION, value: "Modern_Spanish_CI_AI" }
+            - name: MSSQL_SA_PASSWORD
+              valueFrom: { secretKeyRef: { name: corteza-secrets, key: SA_PASSWORD } }
+          resources:
+            requests: { cpu: 250m, memory: 2Gi }
+            limits: { memory: 3Gi }
+          readinessProbe:
+            tcpSocket: { port: 1433 }
+            initialDelaySeconds: 20
+            periodSeconds: 10
+          volumeMounts:
+            - { name: data, mountPath: /var/opt/mssql }
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests: { storage: 5Gi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sqlserver
+  namespace: corteza
+spec:
+  clusterIP: None
+  selector: { app: sqlserver }
+  ports:
+    - { port: 1433, targetPort: 1433 }

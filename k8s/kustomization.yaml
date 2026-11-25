@@ -1,0 +1,9 @@
+# kubectl apply -k k8s/   (después de crear el secreto: ver secret.example.yaml)
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - namespace.yaml
+  - sqlserver.yaml
+  - api.yaml
+  - web.yaml
+  - ingress.yaml

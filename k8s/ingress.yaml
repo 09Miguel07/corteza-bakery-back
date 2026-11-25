@@ -1,0 +1,18 @@
+# Requiere un Ingress Controller (AKS: "application routing" / nginx; EKS: AWS Load Balancer Controller o ingress-nginx).
+# Ajusta ingressClassName y, si tienes dominio, agrega host y TLS.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: corteza
+  namespace: corteza
+spec:
+  ingressClassName: nginx
+  rules:
+    - http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: corteza-web
+                port: { number: 80 }

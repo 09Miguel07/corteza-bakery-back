@@ -75,21 +75,31 @@ var app = builder.Build();
 app.UseExceptionHandler();
 app.UseStatusCodePages();
 
+// Despliegue: Database:InitialiseOnStartup=true aplica migraciones (y datos demo si Seed:DefaultPassword existe)
+// al arrancar el contenedor. En Development siempre corre.
+var initialiseDb = app.Environment.IsDevelopment()
+    || app.Configuration.GetValue<bool>("Database:InitialiseOnStartup");
+
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
     app.MapScalarApiReference(); // http://localhost:5080/scalar
-    await app.Services.InitialiseDatabaseAsync(); // migra y carga datos de demostración
 }
 else
 {
     app.UseHsts();
-    app.UseHttpsRedirection(); // en desarrollo no: el proxy de Angular llama por http
+    // Detrás de un proxy/ingress que ya termina TLS se desactiva con Https:Redirect=false.
+    if (app.Configuration.GetValue("Https:Redirect", true))
+        app.UseHttpsRedirection(); // en desarrollo no: el proxy de Angular llama por http
 }
+
+if (initialiseDb)
+    await app.Services.InitialiseDatabaseAsync(); // migra y carga datos de demostración
 
 app.UseCors();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
+app.MapGet("/health", () => Results.Ok(new { status = "ok" })).AllowAnonymous(); // sondeos de Docker, Kubernetes y la nube
 
 app.Run();

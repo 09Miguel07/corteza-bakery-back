@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: corteza-web
+  namespace: corteza
+spec:
+  replicas: 2
+  selector:
+    matchLabels: { app: corteza-web }
+  template:
+    metadata:
+      labels: { app: corteza-web }
+    spec:
+      containers:
+        - name: web
+          image: ghcr.io/09miguel07/corteza-web:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 80
+          env:
+            - { name: API_UPSTREAM, value: "http://corteza-api:8080" }
+          readinessProbe:
+            httpGet: { path: /healthz, port: 80 }
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /healthz, port: 80 }
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          resources:
+            requests: { cpu: 50m, memory: 32Mi }
+            limits: { memory: 128Mi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: corteza-web
+  namespace: corteza
+spec:
+  selector: { app: corteza-web }
+  ports:
+    - { port: 80, targetPort: 80 }
